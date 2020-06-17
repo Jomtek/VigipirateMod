@@ -26,6 +26,7 @@ namespace Vigipirate
                 Ped soldier = soldiers[i];
                 if (!soldier.IsAlive)
                 {
+                    GlobalInfo.soldiersBlipsHandles.Remove(soldier.CurrentBlip.Handle);
                     soldier.CurrentBlip.Remove();
                     soldiers.Remove(soldier);
                 }
@@ -35,7 +36,7 @@ namespace Vigipirate
         public void RelocateIdleSoldiers()
         {
             foreach (Ped soldier in soldiers)
-                if (!soldier.IsWalking && !soldier.IsInCombat) Relocate();
+                if ((!soldier.IsWalking && !soldier.IsInCombat) || soldier.IsInWater || soldier.IsIdle) Relocate();
         }
 
         private void Register(List<Ped> soldiers)
@@ -44,6 +45,7 @@ namespace Vigipirate
             {
                 soldier.AddBlip();
                 soldier.CurrentBlip.Color = BlipColor.GreenDark;
+                GlobalInfo.soldiersBlipsHandles.Add(soldier.CurrentBlip.Handle);
             }
 
             this.soldiers = soldiers;
@@ -59,7 +61,11 @@ namespace Vigipirate
         public void Delete()
         {
             GlobalInfo.addedPatrols.Remove(this);
-            foreach (Ped soldier in soldiers) soldier.CurrentBlip.Remove();
+            foreach (Ped soldier in soldiers)
+            {
+                GlobalInfo.soldiersBlipsHandles.Remove(soldier.CurrentBlip.Handle);
+                soldier.CurrentBlip.Remove();
+            }
         }
 
         private void Relocate()
@@ -114,7 +120,7 @@ namespace Vigipirate
             return ped;
         }
 
-        public List<Ped> Spawn(int number, Vector3 around)
+        public List<Ped> Spawn(int number, Vector3 basePos)
         {
             if (spawned)
                 throw new Exception("Patrol already spawned");
@@ -123,7 +129,7 @@ namespace Vigipirate
             {
                 if (number < 2) throw new ArgumentException("number should be higher than 1");
 
-                Vector3 groupPos = GenerateSoldierPos(around, 10);
+                Vector3 groupPos = GenerateSoldierPos(basePos, 10);
                 int pedGroup = Function.Call<int>(Hash.CREATE_GROUP);
 
                 Ped principalSoldier = SpawnSoldier(groupPos, pedGroup, true);

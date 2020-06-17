@@ -18,7 +18,8 @@ namespace Vigipirate
 {
     public class Main : Script
     {
-        private int relocateIdleGroupsTickRounds = 5000;
+        private int relocateIdleGroupsTickRounds = 2500;
+        private int spawnPatrolsTickRounds = 500;
 
         public Main()
         {
@@ -29,8 +30,11 @@ namespace Vigipirate
             foreach (Blip blip in World.GetActiveBlips())
                 blip.Remove();
 
-            GlobalInfo.RELATIONSHIP_SOLDIER = World.AddRelationshipGroup("MILITARY");
-                
+            GlobalInfo.RELATIONSHIP_SOLDIER = World.AddRelationshipGroup("ARMY");   
+
+            World.SetRelationshipBetweenGroups(Relationship.Companion, GlobalInfo.RELATIONSHIP_SOLDIER, GlobalInfo.RELATIONSHIP_COP);
+            World.SetRelationshipBetweenGroups(Relationship.Companion, GlobalInfo.RELATIONSHIP_COP, GlobalInfo.RELATIONSHIP_SOLDIER);
+            
             this.Tick += onTick;
             this.KeyDown += onKeyDown;
         }
@@ -40,16 +44,29 @@ namespace Vigipirate
             foreach (Patrol patrol in GlobalInfo.addedPatrols)
                 patrol.RefreshDeadSoldiers();
 
+            //World.GetDistance
+
+
             if (relocateIdleGroupsTickRounds == 0)
             {
                 foreach (Patrol patrol in GlobalInfo.addedPatrols)
                     patrol.RelocateIdleSoldiers();
 
-                relocateIdleGroupsTickRounds = 5000;
+                relocateIdleGroupsTickRounds = 2500;
             }
             else
             {
                 relocateIdleGroupsTickRounds--;
+            }
+
+
+            if (spawnPatrolsTickRounds == 0)
+            {
+                SpawnPatrols.Tick();
+                spawnPatrolsTickRounds = 500;
+            } else
+            {
+                spawnPatrolsTickRounds--;
             }
         }
 
@@ -59,8 +76,12 @@ namespace Vigipirate
             {
                 Patrol patrol = new Patrol();
                 patrol.Spawn(3, Game.Player.Character.Position);
+
+                //if (World.GetDistance(new Vector3(-198, -905, 29), Game.Player.Character.Position) > 1100)
+                
+                
             }
         }
-
+            
     }
 }

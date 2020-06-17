@@ -9,83 +9,135 @@ using GTA.Native;
 using System.Windows.Forms;
 using System.Drawing;
 using Microsoft.Win32;
+using System.Runtime.CompilerServices;
+using System.Threading;
+using System.Diagnostics;
+using NativeUI;
 
 namespace Vigipirate
 {
     public class Main : Script
     {
         public int RELATIONSHIP_SOLDIER = 0;
-        public List<Ped> addedSoldiers = new List<Ped>();
+        public List<List<Ped>> addedGroups = new List<List<Ped>>();
+        private int relocateIdleGroupsTickRounds = 5000;
 
         public Main()
         {
-            UI.Notify("Vigipirate Mod - Jomtek");
-            foreach (Blip blip in World.GetActiveBlips()) blip.Remove();
+            //Interval = 2000;
 
-            RELATIONSHIP_SOLDIER = World.AddRelationshipGroup("MILITARY");
-            this.Tick += onTick;
-            this.KeyDown += onKeyDown;
+            try
+            {
+                UI.Notify("Vigipirate Mod - Jomtek");
+                foreach (Blip blip in World.GetActiveBlips()) blip.Remove();
+
+                RELATIONSHIP_SOLDIER = World.AddRelationshipGroup("MILITARY");
+                this.Tick += onTick;
+                this.KeyDown += onKeyDown;
+            }
+            catch (Exception ex)
+            {
+                var st = new StackTrace(ex, true);
+                UI.Notify(st.GetFrame(0).GetFileLineNumber().ToString());
+            }
         }
 
-        private void registerSoldier(Ped soldier)
+        private void RegisterSoldierGroup(List<Ped> soldiers)
         {
-            soldier.AddBlip();
-            soldier.CurrentBlip.Color = BlipColor.GreenDark;
-            addedSoldiers.Add(soldier);
+            foreach (Ped soldier in soldiers)
+            {
+                soldier.AddBlip();
+                soldier.CurrentBlip.Color = BlipColor.GreenDark;
+            }
+
+            addedGroups.Add(soldiers);
         }
 
-        private Ped spawnSoldier(Vector3 position, int pedGroup, bool isLeader = false)
+        private Vector3 GenerateSoldierPos(Vector3 basePos, int around)
+        {
+            return World.GetNextPositionOnSidewalk(basePos.Around(around));
+        }
+
+        private void RelocateGroup(List<Ped> soldierGroup, Vector3 basePos, int around)
+        {
+            if (soldierGroup.Count() != 3)
+            {
+                addedGroups.Remove(soldierGroup);
+                foreach (Ped soldier in soldierGroup) soldier.CurrentBlip.Remove();
+                return;
+            }
+            else
+            {
+                Ped groupLeader = soldierGroup[0].CurrentPedGroup.Leader;
+                groupLeader.Position = GenerateSoldierPos(basePos, around);
+
+                foreach (Ped soldier in soldierGroup) soldier.Position = GenerateSoldierPos(groupLeader.Position, 5);
+            }
+        }
+
+        private Ped SpawnSoldier(Vector3 position, int pedGroup, bool isLeader = false)
         {
             var ped = World.CreatePed(PedHash.Blackops01SMY, position);
             ped.RelationshipGroup = RELATIONSHIP_SOLDIER;
-            ped.Weapons.Give(WeaponHash.AdvancedRifle, 100, true, true);
+            ped.Weapons.Give(WeaponHash.Grenade, 3, false, false);
+            ped.Weapons.Give(WeaponHash.HeavyPistol, 15, false, true);
+            ped.Weapons.Give(WeaponHash.AdvancedRifle, 45, true, true);
+
             ped.CanSwitchWeapons = true;
+            ped.CanWrithe = false;
+            //ped.AlwaysKeepTask = true;
 
             Function.Call(Hash.SET_PED_PATH_CAN_USE_CLIMBOVERS, ped, true);
+            //Function.Call(Hash.FREEZE_ENTITY_POSITION, ped, false);
 
-            if (isLeader) {
+            if (isLeader)
+            {
                 Function.Call(Hash.SET_PED_AS_GROUP_LEADER, ped, pedGroup);
-                ped.Task.WanderAround(ped.Position, 150);
-            } else
+                ped.Task.WanderAround();
+                ped.FiringPattern = FiringPattern.BurstFire;
+            }
+            else
             {
                 Function.Call(Hash.SET_PED_AS_GROUP_MEMBER, ped, pedGroup);
+                ped.FiringPattern = FiringPattern.FromGround;
             }
 
             return ped;
         }
 
-        private List<Ped> spawnSoldierGroup(int number)
+        private List<Ped> SpawnSoldierGroup(int number)
         {
             try
             {
+
                 if (number < 2) throw new ArgumentException("number should be higher than 1");
 
-                Vector3 groupPos = World.GetNextPositionOnSidewalk(Game.Player.Character.Position.Around(10));
+                Vector3 groupPos = GenerateSoldierPos(Game.Player.Character.Position, 10);
                 int pedGroup = Function.Call<int>(Hash.CREATE_GROUP);
 
-                Ped principalSoldier = spawnSoldier(groupPos, pedGroup, true);
-                principalSoldier.CurrentPedGroup.SeparationRange = 5000;
-                    
-                registerSoldier(principalSoldier);
+                Ped principalSoldier = SpawnSoldier(groupPos, pedGroup, true);
 
-                var soldiersGroup = new List<Ped>() { principalSoldier };
+                //principalSoldier.CurrentPedGroup.SeparationRange = 5000;
+
+                var soldierGroup = new List<Ped>() { principalSoldier };
 
                 for (int i = 1; i < number; i++)
                 {
-                    Ped soldier = spawnSoldier(groupPos.Around(1), pedGroup);
-                    registerSoldier(soldier);
-
-                    Function.Call(Hash.FREEZE_ENTITY_POSITION, soldier, false);
+                    Ped soldier = SpawnSoldier(GenerateSoldierPos(principalSoldier.Position, 5), pedGroup);
                     // Game.Player.Character.CurrentPedGroup.SeparationRange = 2000;
 
                     // soldier.Task.FollowToOffsetFromEntity(Game.Player.Character, new Vector3(0, 0,0), 3000, 1);
                     //soldier.AlwaysKeepTask = true;
-                    soldiersGroup.Add(soldier);
+                    soldierGroup.Add(soldier);
                 }
-                return soldiersGroup;
-            } catch (Exception ex)
+
+                RegisterSoldierGroup(soldierGroup);
+                return soldierGroup;
+
+            }
+            catch (Exception ex)
             {
-                UI.Notify(ex.Message);
+                UI.Notify(ex.ToString());
             }
 
             return null;
@@ -93,23 +145,40 @@ namespace Vigipirate
 
         private void onTick(object sender, EventArgs e)
         {
-            for (int i = 0; i < addedSoldiers.Count; i++)
+            foreach (List<Ped> soldierGroup in addedGroups)
             {
-                Ped soldier = addedSoldiers[i];
-                if (!soldier.IsAlive)
+                for (int i = 0; i < soldierGroup.Count; i++)
                 {
-                    soldier.CurrentBlip.Remove();
-                    addedSoldiers.Remove(soldier);
+                    Ped soldier = soldierGroup[i];
+
+                    if (!soldier.IsAlive)
+                    {
+                        soldier.CurrentBlip.Remove();
+                        soldierGroup.Remove(soldier);
+                    }
                 }
             }
 
+            if (relocateIdleGroupsTickRounds == 0)
+            {
+                foreach (List<Ped> soldierGroup in addedGroups)
+                    foreach (Ped soldier in soldierGroup)
+                        if (!soldier.IsWalking && !soldier.IsInCombat)
+                            RelocateGroup(soldierGroup, Game.Player.Character.Position, 10);
+
+                relocateIdleGroupsTickRounds = 5000;
+            }
+            else
+            {
+                relocateIdleGroupsTickRounds--;
+            }
         }
 
         private void onKeyDown(object sender, KeyEventArgs e)
         {
             if (e.KeyCode == Keys.E)
             {
-                spawnSoldierGroup(3);
+                SpawnSoldierGroup(3);
             }
         }
 

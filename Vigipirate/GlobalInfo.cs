@@ -6,8 +6,9 @@ using System.Threading.Tasks;
 
 namespace Vigipirate
 {
-    class Vigipirate
+    class GlobalInfo
     {
-
+        public static int RELATIONSHIP_SOLDIER = 0;
+        public static List<Patrol> addedPatrols = new List<Patrol>();
     }
 }

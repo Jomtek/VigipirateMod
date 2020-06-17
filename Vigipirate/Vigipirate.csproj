@@ -48,9 +48,10 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="GlobalInfo.cs" />
     <Compile Include="Main.cs" />
+    <Compile Include="Patrol.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="Vigipirate.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

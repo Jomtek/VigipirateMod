@@ -12,5 +12,8 @@ namespace Vigipirate
         public static int RELATIONSHIP_COP = 3;
         public static List<Patrol> addedPatrols = new List<Patrol>();
         public static List<int> soldiersBlipsHandles = new List<int>();
+
+        // Settings
+        public static int spawnDistance = 100;
     }
 }

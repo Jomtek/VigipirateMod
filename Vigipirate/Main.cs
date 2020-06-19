@@ -18,14 +18,12 @@ namespace Vigipirate
 {
     public class Main : Script
     {
-        private int relocateIdleGroupsTickRounds = 2500;
-        private int spawnPatrolsTickRounds = 500;
+        private int relocateIdleGroupsTickRounds = 5000;
+        private int spawnPatrolsTickRounds = 1000;
 
         public Main()
         {
-            //Interval = 2000;
-
-            UI.Notify("Vigipirate Mod - Jomtek");
+            UI.Notify("Vigipirate Mod (by Jomtek)");
                 
             foreach (Blip blip in World.GetActiveBlips())
                 blip.Remove();
@@ -42,17 +40,19 @@ namespace Vigipirate
         private void onTick(object sender, EventArgs e)
         {
             foreach (Patrol patrol in GlobalInfo.addedPatrols)
-                patrol.RefreshDeadSoldiers();
-
-            //World.GetDistance
-
+                patrol.ManageDeadSoldiers();
 
             if (relocateIdleGroupsTickRounds == 0)
             {
-                foreach (Patrol patrol in GlobalInfo.addedPatrols)
-                    patrol.RelocateIdleSoldiers();
+                int counter = 0;
+                for (int i = 0; i < GlobalInfo.addedPatrols.Count; i++)
+                {
+                    Patrol patrol = GlobalInfo.addedPatrols[counter];
+                    if (patrol.ManageIdleSoldiers()) counter--;
+                    counter++;
+                }
 
-                relocateIdleGroupsTickRounds = 2500;
+                relocateIdleGroupsTickRounds = 5000;
             }
             else
             {
@@ -63,19 +63,21 @@ namespace Vigipirate
             if (spawnPatrolsTickRounds == 0)
             {
                 SpawnPatrols.Tick();
-                spawnPatrolsTickRounds = 500;
-            } else
+                spawnPatrolsTickRounds = 1000;
+            }
+            else
             {
                 spawnPatrolsTickRounds--;
             }
+
         }
 
         private void onKeyDown(object sender, KeyEventArgs e)
         {
             if (e.KeyCode == Keys.E)
             {
-                Patrol patrol = new Patrol();
-                patrol.Spawn(3, Game.Player.Character.Position);
+                //Patrol patrol = new Patrol();
+                //patrol.Spawn(3, Game.Player.Character.Position);
 
                 //if (World.GetDistance(new Vector3(-198, -905, 29), Game.Player.Character.Position) > 1100)
                 
